@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CORE_OS | GPIO Control</title>
+  <style>
+    :root {
+      --bg: #0b1116;
+      --panel: #121a22;
+      --panel-2: #18222c;
+      --text: #d8e7f0;
+      --muted: #90a6b7;
+      --accent: #00e5ff;
+      --off: #ff4d6d;
+      --on: #19f5a2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: radial-gradient(circle at top, #121c26, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .dashboard {
+      width: min(980px, 100%);
+      background: rgba(18, 26, 34, 0.75);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 0 30px rgba(0, 229, 255, 0.08);
+      backdrop-filter: blur(3px);
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      letter-spacing: 1px;
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+
+    .sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(170px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid rgba(0, 229, 255, 0.18);
+      border-radius: 14px;
+      padding: 16px;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 18px rgba(0, 229, 255, 0.25);
+    }
+
+    .label {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--off);
+      box-shadow: 0 0 10px rgba(255, 77, 109, 0.8);
+    }
+
+    .dot.on {
+      background: var(--on);
+      box-shadow: 0 0 10px rgba(25, 245, 162, 0.85);
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #03131a;
+      background: var(--accent);
+      cursor: pointer;
+      transition: filter 0.15s ease;
+    }
+
+    button:hover { filter: brightness(1.07); }
+    button:active { filter: brightness(0.95); }
+
+    @media (max-width: 850px) {
+      .grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+    }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="dashboard">
+    <h1>CORE_OS</h1>
+    <p class="sub">Industrial GPIO control panel · Raspberry Pi Pico W</p>
+
+    <section class="grid" id="gpioGrid"></section>
+  </main>
+
+  <script>
+    const gpios = [1, 2, 3, 4];
+
+    function cardTemplate(pin) {
+      return `
+        <article class="card" id="card-${pin}">
+          <div class="label">GPIO ${pin}</div>
+          <div class="status-row">
+            <span class="dot" id="dot-${pin}"></span>
+            <span id="status-${pin}">OFF</span>
+          </div>
+          <button onclick="toggleGPIO(${pin})">TOGGLE</button>
+        </article>
+      `;
+    }
+
+    function setStatus(pin, isOn) {
+      const statusEl = document.getElementById(`status-${pin}`);
+      const dotEl = document.getElementById(`dot-${pin}`);
+      statusEl.textContent = isOn ? 'ON' : 'OFF';
+      dotEl.classList.toggle('on', isOn);
+    }
+
+    async function toggleGPIO(pin) {
+      try {
+        const res = await fetch(`/gpio/${pin}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setStatus(pin, data.state === 1);
+      } catch (_) {
+        // silent fail for lightweight reliability
+      }
+    }
+
+    async function loadStates() {
+      try {
+        const res = await fetch('/states');
+        if (!res.ok) return;
+        const data = await res.json();
+        gpios.forEach(pin => setStatus(pin, data[pin] === 1 || data[String(pin)] === 1));
+      } catch (_) {
+        // leave defaults on communication failure
+      }
+    }
+
+    const grid = document.getElementById('gpioGrid');
+    grid.innerHTML = gpios.map(cardTemplate).join('');
+    loadStates();
+  </script>
+</body>
+</html>
